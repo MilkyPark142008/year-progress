@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>年度进度</title>
+    <style>
+        :root {
+            --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            --bg-page: #f5f5f7;
+            --bg-card: #ffffff;
+            --text-main: #1d1d1f;
+            --text-muted: #86868b;
+            --divider: #e5e5ea;
+            --cell-empty: #e8e8ed; 
+            --cell-active: #1d1d1f; 
+            --accent-color: #ff3b30; 
+        }
+
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            font-family: var(--font-system);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 16px;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border-radius: 24px;
+            padding: 32px;
+            width: 100%;
+            max-width: 480px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+        }
+
+        .header {
+            margin-bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin: 0;
+        }
+
+        .current-date {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.2px;
+        }
+
+        .data-display {
+            display: flex;
+            align-items: baseline;
+            margin-bottom: 16px;
+            gap: 8px;
+        }
+
+        .big-percent {
+            font-size: 56px;
+            font-weight: 700;
+            letter-spacing: -2px;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .label {
+            font-size: 16px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .progress-box {
+            background-color: var(--bg-page);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 6px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .grid-cell {
+            flex: 1;
+            height: 16px;
+            border-radius: 4px;
+            background-color: var(--cell-empty);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .cell-fill {
+            height: 100%;
+            width: 0%;
+            background-color: var(--cell-active);
+            transition: width 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .holiday-box {
+            background-color: var(--bg-page);
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .holiday-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            padding-right: 12px;
+        }
+
+        .select-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .holiday-select {
+            appearance: none;
+            -webkit-appearance: none;
+            background: transparent;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+            font-family: var(--font-system);
+            cursor: pointer;
+            padding: 0 20px 0 0;
+            outline: none;
+            width: 100%;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .select-arrow {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 10px;
+            height: 10px;
+            pointer-events: none;
+            fill: var(--text-muted);
+        }
+
+        .holiday-date {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .holiday-countdown { text-align: right; flex-shrink: 0; }
+
+        .countdown-num {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-color);
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+        
+        .countdown-unit {
+            font-size: 12px;
+            color: var(--accent-color);
+            font-weight: 500;
+            margin-left: 2px;
+        }
+
+        .stats-grid {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 20px;
+            border-top: 1px solid var(--divider);
+        }
+
+        .stat-item { display: flex; flex-direction: column; gap: 4px; }
+        .stat-item:last-child { align-items: flex-end; }
+        .stat-label { font-size: 12px; color: var(--text-muted); }
+        .stat-value { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="header">
+            <h1 class="title" id="year-title">年度进度</h1>
+            <div class="current-date" id="current-date">加载中...</div>
+        </div>
+
+        <div class="data-display">
+            <span class="big-percent" id="display-percent">0.0</span>
+            <span class="label">%</span>
+        </div>
+
+        <div class="progress-box" id="grid-container"></div>
+
+        <div class="holiday-box">
+            <div class="holiday-info">
+                <div class="select-wrapper">
+                    <!-- 下拉菜单，只显示节日名 -->
+                    <select class="holiday-select" id="holiday-select" onchange="onHolidayChange()"></select>
+                    <svg class="select-arrow" viewBox="0 0 10 6"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                </div>
+                <!-- 小字显示具体日期 -->
+                <div class="holiday-date" id="holiday-date">--月--日</div>
+            </div>
+            <div class="holiday-countdown">
+                <span class="countdown-num" id="countdown-num" style="font-size: 24px;">--</span>
+                <span class="countdown-unit" id="countdown-unit">天</span>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-label">已过天数</span>
+                <span class="stat-value" id="passed-days">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">剩余天数</span>
+                <span class="stat-value" id="remaining-days">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">总计</span>
+                <span class="stat-value" id="total-days">365</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =========================================================
+           微型农历 & 24节气算法 (强制东八区)
+        ========================================================= */
+        const LunarInfo = [0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x055c0,0x0ab60,0x096d5,0x092e0,0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0];
+        const SolarTermInfo = [0,21208,42467,63836,85337,107014,128867,150921,173149,195551,218072,240693,263343,285989,308563,331033,353350,375494,397447,419210,440795,462224,483532,504758];
+
+        function lYearDays(y) { let i, sum = 348; for (i = 0x8000; i > 0x8; i >>= 1) sum += (LunarInfo[y - 1900] & i) ? 1 : 0; return (sum + leapDays(y)); }
+        function leapMonth(y) { return (LunarInfo[y - 1900] & 0xf); }
+        function leapDays(y) { if (leapMonth(y)) return ((LunarInfo[y - 1900] & 0x10000) ? 30 : 29); return 0; }
+        function monthDays(y, m) { return ((LunarInfo[y - 1900] & (0x10000 >> m)) ? 30 : 29); }
+        
+        function getLunarDate(y, m, d) {
+            let offset = (Date.UTC(y, m - 1, d) - Date.UTC(1900, 0, 31)) / 86400000;
+            let i, temp = 0, lunarYear = 1900;
+            for (i = 1900; i < 2101 && offset > 0; i++) { temp = lYearDays(i); offset -= temp; }
+            if (offset < 0) { offset += temp; i--; }
+            lunarYear = i;
+            let leap = leapMonth(i), isLeap = false;
+            for (i = 1; i < 13 && offset > 0; i++) {
+                if (leap > 0 && i === (leap + 1) && !isLeap) { --i; isLeap = true; temp = leapDays(lunarYear); } else { temp = monthDays(lunarYear, i); }
+                if (isLeap && i === (leap + 1)) isLeap = false;
+                offset -= temp;
+            }
+            if (offset === 0 && leap > 0 && i === leap + 1) { if (isLeap) { isLeap = false; } else { isLeap = true; --i; } }
+            if (offset < 0) { offset += temp; --i; }
+            return { lMonth: i, lDay: offset + 1, isLeap: isLeap };
+        }
+        
+        function getTermDate(y, n) {
+            let offDate = new Date((31556925974.7 * (y - 1900) + SolarTermInfo[n] * 60000) + Date.UTC(1900, 0, 6, 2, 5) + 8 * 3600000);
+            return offDate.getUTCDate();
+        }
+
+        /* =========================================================
+           时间基准与节日生成
+        ========================================================= */
+        function getBeijingDateInfo() {
+            const now = new Date();
+            const bjMs = now.getTime() + (now.getTimezoneOffset() * 60000) + (8 * 3600000);
+            const bjDate = new Date(bjMs);
+            
+            const year = bjDate.getUTCFullYear();
+            const month = bjDate.getUTCMonth() + 1;
+            const day = bjDate.getUTCDate();
+            const weekDay = ['日', '一', '二', '三', '四', '五', '六'][bjDate.getUTCDay()];
+            const todayZeroUTC = Date.UTC(year, month - 1, day);
+
+            return { year, month, day, weekDay, todayZeroUTC };
+        }
+
+        const TERM_NAMES = ["小寒","大寒","立春","雨水","惊蛰","春分","清明","谷雨","立夏","小满","芒种","夏至","小暑","大暑","立秋","处暑","白露","秋分","寒露","霜降","立冬","小雪","大雪","冬至"];
+
+        function getYearHolidays(year) {
+            let list = [];
+            list.push({ year, name: "元旦", m: 1, d: 1 });
+            list.push({ year, name: "劳动节", m: 5, d: 1 });
+            list.push({ year, name: "国庆节", m: 10, d: 1 });
+
+            let lunarMonths = [
+                { name: "春节", m: 1, d: 1 },
+                { name: "端午节", m: 5, d: 5 },
+                { name: "中秋节", m: 8, d: 15 }
+            ];
+
+            lunarMonths.forEach(item => {
+                for (let m = 1; m <= 12; m++) {
+                    let found = false;
+                    for (let d = 1; d <= 31; d++) {
+                        let l = getLunarDate(year, m, d);
+                        if (l.lMonth === item.m && l.lDay === item.d && !l.isLeap) {
+                            list.push({ year, name: item.name, m: m, d: d });
+                            found = true;
+                            break; 
+                        }
+                    }
+                    if (found) break; 
+                }
+            });
+
+            for (let i = 0; i < 24; i++) {
+                let d = getTermDate(year, i);
+                let m = Math.floor(i / 2) + 1;
+                list.push({ year, name: TERM_NAMES[i], m: m, d: d });
+            }
+
+            list.sort((a, b) => Date.UTC(year, a.m-1, a.d) - Date.UTC(year, b.m-1, b.d));
+            
+            let uniqueList = [];
+            list.forEach(item => {
+                if (!uniqueList.find(u => u.m === item.m && u.d === item.d)) {
+                    uniqueList.push(item);
+                }
+            });
+
+            return uniqueList;
+        }
+
+        let selectedHolidayId = ""; 
+
+        function initSelect() {
+            const select = document.getElementById('holiday-select');
+            const bj = getBeijingDateInfo();
+            const currentYear = bj.year;
+
+            let allEvents = [];
+            for (let y = currentYear; y <= currentYear + 1; y++) {
+                allEvents = allEvents.concat(getYearHolidays(y));
+            }
+            // 核心排序：严格按照绝对时间戳升序，自然实现了“按距离今天最近排序”
+            allEvents.sort((a, b) => Date.UTC(a.year, a.m-1, a.d) - Date.UTC(b.year, b.m-1, b.d));
+
+            select.innerHTML = ''; 
+
+            // 过滤出今天及未来的所有节日
+            let futureEvents = allEvents.filter(h => Date.UTC(h.year, h.m-1, h.d) >= bj.todayZeroUTC);
+            
+            futureEvents.forEach(h => {
+                const option = document.createElement('option');
+                option.value = `${h.year}-${h.m}-${h.d}`;
+                // 【修改点】下拉菜单选项只显示节日名称，不再拼接日期
+                option.innerText = h.name; 
+                select.appendChild(option);
+            });
+
+            if (futureEvents.length > 0) {
+                const hasCurrent = Array.from(select.options).some(opt => opt.value === selectedHolidayId);
+                if (hasCurrent) {
+                    select.value = selectedHolidayId;
+                } else {
+                    // 如果没有选中，或者选中的已经过期（不在列表里了），默认选中第一个（距离最近）
+                    selectedHolidayId = select.options[0].value;
+                    select.value = selectedHolidayId;
+                }
+            }
+        }
+
+        function getStats() {
+            const bj = getBeijingDateInfo();
+            const currentYear = bj.year;
+            const formattedDate = `${currentYear}年${bj.month}月${bj.day}日 星期${bj.weekDay}`;
+            
+            const isLeapYear = (currentYear % 4 === 0 && currentYear % 100 !== 0) || (currentYear % 400 === 0);
+            const totalDays = isLeapYear ? 366 : 365;
+            const startUTC = Date.UTC(currentYear, 0, 1);
+            const passedDays = Math.floor((bj.todayZeroUTC - startUTC) / 86400000) + 1;
+            const remainingDays = totalDays - passedDays;
+            const percent = (passedDays / totalDays) * 100;
+
+            let targetHoliday = null;
+            
+            if (selectedHolidayId) {
+                const parts = selectedHolidayId.split('-');
+                if (parts.length === 3) {
+                    const sy = parseInt(parts[0]), sm = parseInt(parts[1]), sd = parseInt(parts[2]);
+                    const eUTC = Date.UTC(sy, sm-1, sd);
+                    
+                    if (eUTC >= bj.todayZeroUTC) {
+                        let eventList = getYearHolidays(sy);
+                        let eventObj = eventList.find(e => e.m === sm && e.d === sd);
+                        
+                        targetHoliday = { 
+                            name: eventObj ? eventObj.name : `${sm}月${sd}日`, 
+                            dateStr: `${sm}月${sd}日`, 
+                            days: Math.round((eUTC - bj.todayZeroUTC) / 86400000) 
+                        };
+                    }
+                }
+            }
+
+            return { currentYear, totalDays, passedDays, remainingDays, percent, formattedDate, targetHoliday };
+        }
+
+        function onHolidayChange() {
+            selectedHolidayId = document.getElementById('holiday-select').value;
+            updateHolidayUI(); 
+        }
+
+        function updateHolidayUI() {
+            const data = getStats();
+            if (data.targetHoliday) {
+                // 下方的小字显示具体日期
+                document.getElementById('holiday-date').innerText = data.targetHoliday.dateStr;
+                
+                const countdownNum = document.getElementById('countdown-num');
+                const countdownUnit = document.getElementById('countdown-unit');
+                
+                if (data.targetHoliday.days === 0) {
+                    countdownNum.innerText = "今天";
+                    countdownUnit.innerText = "就是";
+                    countdownNum.style.fontSize = "20px";
+                } else {
+                    countdownNum.innerText = data.targetHoliday.days;
+                    countdownUnit.innerText = "天后";
+                    countdownNum.style.fontSize = "24px"; // 确保跨天切换时恢复默认大小
+                }
+            }
+        }
+
+        function render() {
+            const data = getStats();
+            
+            document.getElementById('year-title').innerText = `${data.currentYear} 年度进度`;
+            document.getElementById('current-date').innerText = data.formattedDate;
+            document.getElementById('display-percent').innerText = data.percent.toFixed(1);
+            document.getElementById('passed-days').innerText = data.passedDays;
+            document.getElementById('remaining-days').innerText = data.remainingDays;
+            document.getElementById('total-days').innerText = data.totalDays;
+
+            const gridContainer = document.getElementById('grid-container');
+            gridContainer.innerHTML = ''; 
+            const totalCells = 12;
+            const totalFilledCells = (data.percent / 100) * totalCells;
+
+            for (let i = 0; i < totalCells; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                const fill = document.createElement('div');
+                fill.className = 'cell-fill';
+                
+                let cellFillPercent = 0;
+                if (totalFilledCells >= i + 1) {
+                    cellFillPercent = 100;
+                } else if (totalFilledCells > i) {
+                    cellFillPercent = (totalFilledCells - i) * 100;
+                }
+
+                cell.appendChild(fill);
+                gridContainer.appendChild(cell);
+
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        fill.style.width = `${cellFillPercent}%`;
+                    }, i * 30);
+                });
+            }
+
+            updateHolidayUI();
+        }
+
+        // 启动
+        initSelect();
+        render();
+
+        // 定时检测：跨天时自动刷新列表，如果选中的节日过期，自动切下一个
+        setInterval(() => {
+            const now = new Date();
+            const bjMs = now.getTime() + (now.getTimezoneOffset() * 60000) + (8 * 3600000);
+            const bjHour = new Date(bjMs).getUTCHours();
+            const bjMin = new Date(bjMs).getUTCMinutes();
+
+            if (bjHour === 0 && bjMin === 0) {
+                initSelect(); 
+                render();
+            }
+        }, 60000);
+    </script>
+</body>
+</html>
