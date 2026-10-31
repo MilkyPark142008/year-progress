@@ -12,9 +12,9 @@
             --text-main: #1d1d1f;
             --text-muted: #86868b;
             --divider: #e5e5ea;
-            --cell-empty: #e8e8ed; 
-            --cell-active: #1d1d1f; 
-            --accent-color: #ff3b30; 
+            --bar-bg: #e8e8ed; /* 进度条底色 */
+            --bar-fill: #1d1d1f; /* 进度条填充色 */
+            --accent-color: #ff3b30; /* 倒计时高亮红 */
         }
 
         body {
@@ -83,33 +83,31 @@
             font-weight: 500;
         }
 
-        .progress-box {
-            background-color: var(--bg-page);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 24px;
-            display: flex;
-            gap: 6px;
-            width: 100%;
-            box-sizing: border-box;
+        /* 极简进度条区域 */
+        .progress-container {
+            margin-bottom: 32px;
+            padding-top: 8px;
         }
 
-        .grid-cell {
-            flex: 1;
-            height: 16px;
-            border-radius: 4px;
-            background-color: var(--cell-empty);
+        .progress-track {
+            width: 100%;
+            height: 6px; /* 极细的线条 */
+            background-color: var(--bar-bg);
+            border-radius: 3px;
             overflow: hidden;
             position: relative;
         }
 
-        .cell-fill {
+        .progress-fill {
             height: 100%;
             width: 0%;
-            background-color: var(--cell-active);
-            transition: width 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+            background-color: var(--bar-fill);
+            border-radius: 3px;
+            /* 平滑过渡动画 */
+            transition: width 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
+        /* 节日倒计时面板 */
         .holiday-box {
             background-color: var(--bg-page);
             border-radius: 16px;
@@ -186,6 +184,7 @@
             margin-left: 2px;
         }
 
+        /* 底部统计数据 */
         .stats-grid {
             display: flex;
             justify-content: space-between;
@@ -212,16 +211,19 @@
             <span class="label">%</span>
         </div>
 
-        <div class="progress-box" id="grid-container"></div>
+        <!-- 去掉了一切刻度的极简连续进度条 -->
+        <div class="progress-container">
+            <div class="progress-track">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+        </div>
 
         <div class="holiday-box">
             <div class="holiday-info">
                 <div class="select-wrapper">
-                    <!-- 下拉菜单，只显示节日名 -->
                     <select class="holiday-select" id="holiday-select" onchange="onHolidayChange()"></select>
                     <svg class="select-arrow" viewBox="0 0 10 6"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
                 </div>
-                <!-- 小字显示具体日期 -->
                 <div class="holiday-date" id="holiday-date">--月--日</div>
             </div>
             <div class="holiday-countdown">
@@ -355,18 +357,15 @@
             for (let y = currentYear; y <= currentYear + 1; y++) {
                 allEvents = allEvents.concat(getYearHolidays(y));
             }
-            // 核心排序：严格按照绝对时间戳升序，自然实现了“按距离今天最近排序”
             allEvents.sort((a, b) => Date.UTC(a.year, a.m-1, a.d) - Date.UTC(b.year, b.m-1, b.d));
 
             select.innerHTML = ''; 
 
-            // 过滤出今天及未来的所有节日
             let futureEvents = allEvents.filter(h => Date.UTC(h.year, h.m-1, h.d) >= bj.todayZeroUTC);
             
             futureEvents.forEach(h => {
                 const option = document.createElement('option');
                 option.value = `${h.year}-${h.m}-${h.d}`;
-                // 【修改点】下拉菜单选项只显示节日名称，不再拼接日期
                 option.innerText = h.name; 
                 select.appendChild(option);
             });
@@ -376,7 +375,6 @@
                 if (hasCurrent) {
                     select.value = selectedHolidayId;
                 } else {
-                    // 如果没有选中，或者选中的已经过期（不在列表里了），默认选中第一个（距离最近）
                     selectedHolidayId = select.options[0].value;
                     select.value = selectedHolidayId;
                 }
@@ -427,7 +425,6 @@
         function updateHolidayUI() {
             const data = getStats();
             if (data.targetHoliday) {
-                // 下方的小字显示具体日期
                 document.getElementById('holiday-date').innerText = data.targetHoliday.dateStr;
                 
                 const countdownNum = document.getElementById('countdown-num');
@@ -440,7 +437,7 @@
                 } else {
                     countdownNum.innerText = data.targetHoliday.days;
                     countdownUnit.innerText = "天后";
-                    countdownNum.style.fontSize = "24px"; // 确保跨天切换时恢复默认大小
+                    countdownNum.style.fontSize = "24px"; 
                 }
             }
         }
@@ -455,33 +452,14 @@
             document.getElementById('remaining-days').innerText = data.remainingDays;
             document.getElementById('total-days').innerText = data.totalDays;
 
-            const gridContainer = document.getElementById('grid-container');
-            gridContainer.innerHTML = ''; 
-            const totalCells = 12;
-            const totalFilledCells = (data.percent / 100) * totalCells;
-
-            for (let i = 0; i < totalCells; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'grid-cell';
-                const fill = document.createElement('div');
-                fill.className = 'cell-fill';
-                
-                let cellFillPercent = 0;
-                if (totalFilledCells >= i + 1) {
-                    cellFillPercent = 100;
-                } else if (totalFilledCells > i) {
-                    cellFillPercent = (totalFilledCells - i) * 100;
-                }
-
-                cell.appendChild(fill);
-                gridContainer.appendChild(cell);
-
+            // 填充进度条并触发平滑动画
+            const progressFill = document.getElementById('progress-fill');
+            progressFill.style.width = '0%';
+            requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    setTimeout(() => {
-                        fill.style.width = `${cellFillPercent}%`;
-                    }, i * 30);
+                    progressFill.style.width = `${data.percent}%`;
                 });
-            }
+            });
 
             updateHolidayUI();
         }
@@ -490,7 +468,7 @@
         initSelect();
         render();
 
-        // 定时检测：跨天时自动刷新列表，如果选中的节日过期，自动切下一个
+        // 定时检测跨天
         setInterval(() => {
             const now = new Date();
             const bjMs = now.getTime() + (now.getTimezoneOffset() * 60000) + (8 * 3600000);
